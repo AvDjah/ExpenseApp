@@ -48,10 +48,25 @@ class GroupViewModel : ViewModel() {
             groupList[selectedGroupId] = groupList[selectedGroupId].copy(
                 expenseList = oldExpenseList.toList()
             )
+            tempExpense = newExpense
             return true
     }
 
-
+    var tempExpense: Expense =  Expense(
+        groupId = 0,
+        title = "Buy Apple",
+        description = "Dummy",
+        amount = 1000f,
+        creatorId = 0,
+        userShares = mapOf(
+            0 to 500.0f,
+            1 to 500.0f
+        )
+    )
+    var selectedExpense = -1
+    fun changeExpenseShares(){
+        val expense = tempExpense
+    }
 
     fun getUserName(userId: Int): String {
         val selectedGroupId : Int = 0

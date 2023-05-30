@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,7 +52,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -121,7 +121,7 @@ fun GroupInnerScreen() {
         if (selectedGroup != null) {
             val selectedGroup = groupViewModel.groupList[selectedIndex]
             Column {
-                GroupInnerHome(paddingValues = it, group = selectedGroup)
+                GroupInnerHome(paddingValues = it, group = selectedGroup, navController = navController, groupViewModel = groupViewModel)
 
                 AddExpenseBox(selectedGroup = selectedGroup, navController = navController)
 
@@ -147,7 +147,7 @@ fun AddExpenseBox(
     selectedGroup: Group,
     navController: NavHostController = rememberNavController()
 ) {
-    val groupViewModel : GroupViewModel = viewModel()
+    val groupViewModel: GroupViewModel = viewModel()
 
     NavHost(
         navController = navController, DialogDestinations.FIRST_SCREEN.toString(),
@@ -158,18 +158,23 @@ fun AddExpenseBox(
             )
         ) {
 
-            FIRST_SCREEN(groupViewModel = groupViewModel,selectedGroup = selectedGroup, onNextClick = {
-//                navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-                    navController.popBackStack()
-            })
+            FIRST_SCREEN(
+                groupViewModel = groupViewModel,
+                selectedGroup = selectedGroup,
+                onNextClick = {
+                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+//                    navController.popBackStack()
+//                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+                })
         }
         dialog(DialogDestinations.SECOND_SCREEN.toString()) {
-            SECOND_SCREEN() {
+            SECOND_SCREEN(groupViewModel = groupViewModel, onGoBackClick = {
                 navController.popBackStack(DialogDestinations.FIRST_SCREEN.toString(), false)
-            }
+
+            })
         }
-        dialog(DialogDestinations.THIRD_SCREEN.toString()){
-                THIRD_SCREEN()
+        dialog(DialogDestinations.THIRD_SCREEN.toString()) {
+            THIRD_SCREEN()
         }
 
     }
@@ -177,13 +182,18 @@ fun AddExpenseBox(
 }
 
 @Composable
-fun THIRD_SCREEN(modifier : Modifier = Modifier){
+fun THIRD_SCREEN(modifier: Modifier = Modifier) {
 
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FIRST_SCREEN(modifier: Modifier = Modifier, selectedGroup: Group, onNextClick: () -> Unit, groupViewModel: GroupViewModel) {
+fun FIRST_SCREEN(
+    modifier: Modifier = Modifier,
+    selectedGroup: Group,
+    onNextClick: () -> Unit,
+    groupViewModel: GroupViewModel
+) {
 
     val checkList = remember {
         mutableStateListOf<Boolean>()
@@ -202,7 +212,7 @@ fun FIRST_SCREEN(modifier: Modifier = Modifier, selectedGroup: Group, onNextClic
         Column() {
             TextField(
                 value = amount.value, onValueChange = {
-                         amount.value = it
+                    amount.value = it
                 },
                 label = {
                     Text("Enter Amount")
@@ -214,7 +224,9 @@ fun FIRST_SCREEN(modifier: Modifier = Modifier, selectedGroup: Group, onNextClic
                 )
             )
             checkList.forEachIndexed { index, it ->
-                Row(modifier = modifier.padding(8.dp)) {
+                Row(modifier = modifier
+                    .padding(8.dp)
+                    .fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = checkList[index], onCheckedChange = {
                         Log.d("CHECK TRIGGER", checkList.joinToString(","))
                         Log.d("CHECK TRIGGER", index.toString())
@@ -235,7 +247,11 @@ fun FIRST_SCREEN(modifier: Modifier = Modifier, selectedGroup: Group, onNextClic
                 .clickable {
                     val res =
                         groupViewModel.addExpense(
-                            amount.value.toFloat(),
+                            if (amount.value.isEmpty()) {
+                                0f
+                            } else {
+                                amount.value.toFloat()
+                            },
                             mapOf<User, Int>(),
                             checkList = checkList,
                         )
@@ -252,6 +268,7 @@ fun FIRST_SCREEN(modifier: Modifier = Modifier, selectedGroup: Group, onNextClic
                             .makeText(localContext, "Success", Toast.LENGTH_SHORT)
                             .show()
                     }
+
                     onNextClick()
                     //                    onNextClick()
                 }, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium
@@ -259,19 +276,43 @@ fun FIRST_SCREEN(modifier: Modifier = Modifier, selectedGroup: Group, onNextClic
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SECOND_SCREEN(modifier: Modifier = Modifier, onGoBackClick: () -> Unit) {
-    val groupViewModel : GroupViewModel = viewModel()
+fun SECOND_SCREEN(
+    modifier: Modifier = Modifier,
+    onGoBackClick: () -> Unit,
+    groupViewModel: GroupViewModel
+) {
+//    val groupViewModel: GroupViewModel = viewModel()
+
+    var tempExpense = groupViewModel.tempExpense
+    if(groupViewModel.selectedExpense != -1){
+        tempExpense = groupViewModel.groupList[groupViewModel.groupUiState.collectAsState().value.selectedGroupId]
+            .expenseList[groupViewModel.selectedExpense]
+    }
+
     Card(
         modifier = modifier
             .background(color1)
             .padding(16.dp),
     ) {
-        Column() {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally
+        , modifier = modifier.padding(16.dp)) {
             Button(onClick = {
                 onGoBackClick()
-            }) {
+            }, modifier = modifier.padding(10.dp)) {
                 Text("GO BACK")
+            }
+            tempExpense.userShares.forEach {
+                val name = groupViewModel.getUserName(it.key)
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                , verticalAlignment = Alignment.CenterVertically
+                ){
+                    Text(name)
+                    TextField(value = it.value.toString(), onValueChange = {}, modifier = modifier.width(80.dp))
+                }
             }
         }
     }
@@ -279,13 +320,16 @@ fun SECOND_SCREEN(modifier: Modifier = Modifier, onGoBackClick: () -> Unit) {
 
 
 @Composable
-fun GroupInnerHome(paddingValues: PaddingValues, group: Group) {
-    AGroup(group = group, paddingValues = paddingValues)
+fun GroupInnerHome(paddingValues: PaddingValues, group: Group, navController: NavHostController, groupViewModel: GroupViewModel) {
+    AGroup(group = group, paddingValues = paddingValues, onExpenseItemClick = {
+        groupViewModel.selectedExpense = it
+        navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+    })
 }
 
 
 @Composable
-fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingValues) {
+fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingValues, onExpenseItemClick: (index : Int) -> Unit) {
     Column(
         modifier = modifier
             .padding(paddingValues = paddingValues)
@@ -298,9 +342,11 @@ fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingVa
                 .padding(2.dp), verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             itemsIndexed(group.expenseList) { index, item ->
-                Row(verticalAlignment = Alignment.CenterVertically){
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = null)
-                    ExpenseItem(expense = item)
+                    ExpenseItem(expense = item, onExpenseItemClick = {
+                            onExpenseItemClick(index)
+                    })
                 }
             }
         }
@@ -308,9 +354,8 @@ fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingVa
 }
 
 
-
 @Composable
-fun ExpenseItem(expense: Expense, modifier: Modifier = Modifier) {
+fun ExpenseItem(expense: Expense, modifier: Modifier = Modifier, onExpenseItemClick : ()->Unit = {}) {
 
     var showShares by remember {
         mutableStateOf(false)
@@ -318,7 +363,7 @@ fun ExpenseItem(expense: Expense, modifier: Modifier = Modifier) {
 
     var nameTextStyle = MaterialTheme.typography.bodyMedium
     var expenseTextStyle = MaterialTheme.typography.bodyLarge
-    val groupViewModel : GroupViewModel = viewModel()
+    val groupViewModel: GroupViewModel = viewModel()
 
     Column(
         modifier = modifier
@@ -347,7 +392,9 @@ fun ExpenseItem(expense: Expense, modifier: Modifier = Modifier) {
                     modifier = modifier
                         .padding(4.dp)
                         .padding(8.dp)
-                        .fillMaxWidth(),
+                        .fillMaxWidth().clickable {
+                                                  onExpenseItemClick()
+                        },
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = groupViewModel.getUserName(it.key), style = nameTextStyle)
