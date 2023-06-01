@@ -80,7 +80,8 @@ class GroupViewModel : ViewModel() {
             name = "Homies",
             users = listOf(
                 User("Arvind", 0),
-                User("Meena", 1)
+                User("Meena", 1),
+                User("Dummy",2)
             ),
             groupId = 0,
             adminId = 0,

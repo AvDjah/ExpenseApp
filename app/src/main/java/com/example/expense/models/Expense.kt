@@ -6,5 +6,5 @@ data class Expense(
     val description : String = "",
     val creatorId : Int = 0,
     val groupId : Int = 0,
-    val userShares : Map<Int,Float> = mapOf(creatorId to amount.toFloat())
+    var userShares : Map<Int,Float> = mapOf(creatorId to amount.toFloat())
 )

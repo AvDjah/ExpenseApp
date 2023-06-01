@@ -36,12 +36,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,7 +81,9 @@ fun GroupInnerScreen() {
     var expanded by remember {
         mutableStateOf(false)
     }
-
+    var clicked by remember {
+        mutableStateOf(false)
+    }
 
     if (selectedIndex != -1) {
         groupName = groupViewModel.groupList[selectedIndex].name
@@ -112,6 +116,11 @@ fun GroupInnerScreen() {
 
         }, floatingActionButton = {
             FloatingActionButton(onClick = {
+//                if (!clicked) {
+//                    clicked = true
+//                } else {
+//                    navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
+//                }
                 navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
             }) {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -121,10 +130,15 @@ fun GroupInnerScreen() {
         if (selectedGroup != null) {
             val selectedGroup = groupViewModel.groupList[selectedIndex]
             Column {
-                GroupInnerHome(paddingValues = it, group = selectedGroup, navController = navController, groupViewModel = groupViewModel)
-
-                AddExpenseBox(selectedGroup = selectedGroup, navController = navController)
-
+                GroupInnerHome(
+                    paddingValues = it,
+                    group = selectedGroup,
+                    navController = navController,
+                    groupViewModel = groupViewModel
+                )
+//                if (clicked) {
+                    AddExpenseBox(selectedGroup = selectedGroup, navController = navController)
+//                }
             }
         } else {
             Text(text = "No GROUP SELECTED", Modifier.padding(it))
@@ -148,7 +162,9 @@ fun AddExpenseBox(
     navController: NavHostController = rememberNavController()
 ) {
     val groupViewModel: GroupViewModel = viewModel()
-
+//    LaunchedEffect(key1 = Unit){
+//        navController.popBackStack("")
+//    }
     NavHost(
         navController = navController, DialogDestinations.FIRST_SCREEN.toString(),
     ) {
@@ -224,9 +240,11 @@ fun FIRST_SCREEN(
                 )
             )
             checkList.forEachIndexed { index, it ->
-                Row(modifier = modifier
-                    .padding(8.dp)
-                    .fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = modifier
+                        .padding(8.dp)
+                        .fillMaxWidth(), verticalAlignment = Alignment.CenterVertically
+                ) {
                     Checkbox(checked = checkList[index], onCheckedChange = {
                         Log.d("CHECK TRIGGER", checkList.joinToString(","))
                         Log.d("CHECK TRIGGER", index.toString())
@@ -286,33 +304,70 @@ fun SECOND_SCREEN(
 //    val groupViewModel: GroupViewModel = viewModel()
 
     var tempExpense = groupViewModel.tempExpense
-    if(groupViewModel.selectedExpense != -1){
-        tempExpense = groupViewModel.groupList[groupViewModel.groupUiState.collectAsState().value.selectedGroupId]
-            .expenseList[groupViewModel.selectedExpense]
-    }
 
+    var oldShareList = remember {
+        mutableStateListOf<Pair<Int,Float>>()
+    }
+//    oldShareList.addAll(tempExpense.userShares.toList().toMutableList())
+    if (groupViewModel.selectedExpense != -1) {
+        tempExpense =
+            groupViewModel.groupList[groupViewModel.groupUiState.collectAsState().value.selectedGroupId]
+                .expenseList[groupViewModel.selectedExpense]
+        oldShareList.addAll(tempExpense.userShares.toList().toMutableList())
+    }
+    val groupUiState = groupViewModel.groupUiState.collectAsState()
     Card(
         modifier = modifier
             .background(color1)
             .padding(16.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally
-        , modifier = modifier.padding(16.dp)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = modifier.padding(16.dp)
+        ) {
             Button(onClick = {
                 onGoBackClick()
             }, modifier = modifier.padding(10.dp)) {
                 Text("GO BACK")
             }
-            tempExpense.userShares.forEach {
-                val name = groupViewModel.getUserName(it.key)
-                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                , verticalAlignment = Alignment.CenterVertically
-                ){
+            oldShareList.forEachIndexed {
+                index , it ->
+                val name = groupViewModel.getUserName(it.first)
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween, modifier = modifier
+                        .fillMaxWidth()
+                        .padding(16.dp), verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(name)
-                    TextField(value = it.value.toString(), onValueChange = {}, modifier = modifier.width(80.dp))
+                    TextField(
+                        value = it.second.toString(),
+                        onValueChange = {
+                            newValue ->
+                            oldShareList[index] = it.copy(second = newValue.toFloat())
+                        },
+                        modifier = modifier.width(80.dp),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number
+                        )
+                    )
                 }
+            }
+            Button(onClick = {
+                val groupIndex = groupUiState.value.selectedGroupId
+                val expenseIndex = groupViewModel.selectedExpense
+                val selectedGroup = groupViewModel.groupList[groupIndex]
+
+                val mutableMap = mutableMapOf<Int,Float>()
+                mutableMap.putAll(oldShareList)
+
+                selectedGroup.expenseList[expenseIndex].userShares = mutableMap
+
+                groupViewModel.groupList[groupIndex] = groupViewModel.groupList[groupIndex].copy(
+                    expenseList = selectedGroup.expenseList
+                )
+            }, modifier = modifier.padding(10.dp)) {
+                Text("Save")
             }
         }
     }
@@ -320,7 +375,12 @@ fun SECOND_SCREEN(
 
 
 @Composable
-fun GroupInnerHome(paddingValues: PaddingValues, group: Group, navController: NavHostController, groupViewModel: GroupViewModel) {
+fun GroupInnerHome(
+    paddingValues: PaddingValues,
+    group: Group,
+    navController: NavHostController,
+    groupViewModel: GroupViewModel
+) {
     AGroup(group = group, paddingValues = paddingValues, onExpenseItemClick = {
         groupViewModel.selectedExpense = it
         navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
@@ -329,7 +389,12 @@ fun GroupInnerHome(paddingValues: PaddingValues, group: Group, navController: Na
 
 
 @Composable
-fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingValues, onExpenseItemClick: (index : Int) -> Unit) {
+fun AGroup(
+    group: Group,
+    modifier: Modifier = Modifier,
+    paddingValues: PaddingValues,
+    onExpenseItemClick: (index: Int) -> Unit
+) {
     Column(
         modifier = modifier
             .padding(paddingValues = paddingValues)
@@ -345,7 +410,7 @@ fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingVa
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = null)
                     ExpenseItem(expense = item, onExpenseItemClick = {
-                            onExpenseItemClick(index)
+                        onExpenseItemClick(index)
                     })
                 }
             }
@@ -355,7 +420,11 @@ fun AGroup(group: Group, modifier: Modifier = Modifier, paddingValues: PaddingVa
 
 
 @Composable
-fun ExpenseItem(expense: Expense, modifier: Modifier = Modifier, onExpenseItemClick : ()->Unit = {}) {
+fun ExpenseItem(
+    expense: Expense,
+    modifier: Modifier = Modifier,
+    onExpenseItemClick: () -> Unit = {}
+) {
 
     var showShares by remember {
         mutableStateOf(false)
@@ -392,8 +461,9 @@ fun ExpenseItem(expense: Expense, modifier: Modifier = Modifier, onExpenseItemCl
                     modifier = modifier
                         .padding(4.dp)
                         .padding(8.dp)
-                        .fillMaxWidth().clickable {
-                                                  onExpenseItemClick()
+                        .fillMaxWidth()
+                        .clickable {
+                            onExpenseItemClick()
                         },
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
