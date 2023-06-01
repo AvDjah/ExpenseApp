@@ -57,14 +57,16 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.expense.GroupViewModel
 import com.example.expense.models.Expense
 import com.example.expense.models.Group
 import com.example.expense.models.User
 
-@Preview
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupInnerScreen() {
@@ -76,7 +78,6 @@ fun GroupInnerScreen() {
     var selectedGroup: Group? = null
     var groupName: String = "NO NAME"
 
-    val navController = rememberNavController()
 
     var expanded by remember {
         mutableStateOf(false)
@@ -90,6 +91,7 @@ fun GroupInnerScreen() {
         selectedGroup = groupViewModel.groupList[selectedIndex]
     }
 
+    val navController = rememberNavController()
     //TODO : Add a condition so that if no group is selected this screen is automatically closed or doesn't open at all
 
     Scaffold(
@@ -116,33 +118,80 @@ fun GroupInnerScreen() {
 
         }, floatingActionButton = {
             FloatingActionButton(onClick = {
+                 navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
 //                if (!clicked) {
 //                    clicked = true
 //                } else {
 //                    navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
 //                }
-                navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
+//                navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
             }) {
                 Icon(Icons.Default.Add, contentDescription = null)
             }
         }
     ) {
-        if (selectedGroup != null) {
-            val selectedGroup = groupViewModel.groupList[selectedIndex]
-            Column {
-                GroupInnerHome(
-                    paddingValues = it,
-                    group = selectedGroup,
-                    navController = navController,
-                    groupViewModel = groupViewModel
-                )
+        innerPadding ->
+        val groupViewModel: GroupViewModel = viewModel()
+
+        NavHost(
+            navController = navController, DialogDestinations.GROUP_INNER_SCREEN.toString(), modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(DialogDestinations.GROUP_INNER_SCREEN.toString()){
+//                GroupInnerScreen(addExpnse = {
+//                    navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
+//                }, navController = navController)
+
+                if (selectedGroup != null) {
+                    val selectedGroup = groupViewModel.groupList[selectedIndex]
+                    Column {
+                        GroupInnerHome(
+                            group = selectedGroup,
+                            navController = navController,
+                            groupViewModel = groupViewModel
+                        )
 //                if (clicked) {
-                    AddExpenseBox(selectedGroup = selectedGroup, navController = navController)
+//                    AddExpenseBox(selectedGroup = selectedGroup, navController = navController)
 //                }
+                    }
+                } else {
+                    Text(text = "No GROUP SELECTED",)
+                }
+
             }
-        } else {
-            Text(text = "No GROUP SELECTED", Modifier.padding(it))
+            dialog(
+                DialogDestinations.FIRST_SCREEN.toString(), dialogProperties = DialogProperties(
+                    dismissOnClickOutside = true
+                )
+            ) {
+
+                if (selectedGroup != null) {
+                    FIRST_SCREEN(
+                        groupViewModel = groupViewModel,
+                        selectedGroup = selectedGroup,
+                        onNextClick = {
+                            navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+            //                    navController.popBackStack()
+            //                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+                        })
+                } else {
+                    Text("NO GROUP SELECTED")
+                }
+            }
+            dialog(DialogDestinations.SECOND_SCREEN.toString()) {
+                SECOND_SCREEN(groupViewModel = groupViewModel, onGoBackClick = {
+                    navController.popBackStack(DialogDestinations.FIRST_SCREEN.toString(), false)
+
+                }, navController = navController)
+            }
+            dialog(DialogDestinations.THIRD_SCREEN.toString()) {
+                THIRD_SCREEN()
+            }
+
         }
+
+
+
+
     }
 }
 
@@ -150,7 +199,8 @@ fun GroupInnerScreen() {
 val color1 = Color.Transparent
 
 enum class DialogDestinations {
-    FIRST_SCREEN, SECOND_SCREEN, THIRD_SCREEN
+    FIRST_SCREEN, SECOND_SCREEN, THIRD_SCREEN,
+    GROUP_INNER_SCREEN
 }
 
 
@@ -161,39 +211,7 @@ fun AddExpenseBox(
     selectedGroup: Group,
     navController: NavHostController = rememberNavController()
 ) {
-    val groupViewModel: GroupViewModel = viewModel()
-//    LaunchedEffect(key1 = Unit){
-//        navController.popBackStack("")
-//    }
-    NavHost(
-        navController = navController, DialogDestinations.FIRST_SCREEN.toString(),
-    ) {
-        dialog(
-            DialogDestinations.FIRST_SCREEN.toString(), dialogProperties = DialogProperties(
-                dismissOnClickOutside = true
-            )
-        ) {
 
-            FIRST_SCREEN(
-                groupViewModel = groupViewModel,
-                selectedGroup = selectedGroup,
-                onNextClick = {
-                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-//                    navController.popBackStack()
-//                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-                })
-        }
-        dialog(DialogDestinations.SECOND_SCREEN.toString()) {
-            SECOND_SCREEN(groupViewModel = groupViewModel, onGoBackClick = {
-                navController.popBackStack(DialogDestinations.FIRST_SCREEN.toString(), false)
-
-            })
-        }
-        dialog(DialogDestinations.THIRD_SCREEN.toString()) {
-            THIRD_SCREEN()
-        }
-
-    }
 
 }
 
@@ -299,7 +317,8 @@ fun FIRST_SCREEN(
 fun SECOND_SCREEN(
     modifier: Modifier = Modifier,
     onGoBackClick: () -> Unit,
-    groupViewModel: GroupViewModel
+    groupViewModel: GroupViewModel,
+    navController: NavHostController
 ) {
 //    val groupViewModel: GroupViewModel = viewModel()
 
@@ -366,6 +385,8 @@ fun SECOND_SCREEN(
                 groupViewModel.groupList[groupIndex] = groupViewModel.groupList[groupIndex].copy(
                     expenseList = selectedGroup.expenseList
                 )
+                navController.popBackStack()
+
             }, modifier = modifier.padding(10.dp)) {
                 Text("Save")
             }
@@ -376,12 +397,12 @@ fun SECOND_SCREEN(
 
 @Composable
 fun GroupInnerHome(
-    paddingValues: PaddingValues,
+
     group: Group,
     navController: NavHostController,
     groupViewModel: GroupViewModel
 ) {
-    AGroup(group = group, paddingValues = paddingValues, onExpenseItemClick = {
+    AGroup(group = group,  onExpenseItemClick = {
         groupViewModel.selectedExpense = it
         navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
     })
@@ -392,12 +413,10 @@ fun GroupInnerHome(
 fun AGroup(
     group: Group,
     modifier: Modifier = Modifier,
-    paddingValues: PaddingValues,
     onExpenseItemClick: (index: Int) -> Unit
 ) {
     Column(
         modifier = modifier
-            .padding(paddingValues = paddingValues)
             .padding(8.dp)
     ) {
         LazyColumn(
