@@ -49,6 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -118,7 +120,7 @@ fun GroupInnerScreen() {
 
         }, floatingActionButton = {
             FloatingActionButton(onClick = {
-                 navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
+                navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
 //                if (!clicked) {
 //                    clicked = true
 //                } else {
@@ -129,14 +131,15 @@ fun GroupInnerScreen() {
                 Icon(Icons.Default.Add, contentDescription = null)
             }
         }
-    ) {
-        innerPadding ->
+    ) { innerPadding ->
         val groupViewModel: GroupViewModel = viewModel()
 
         NavHost(
-            navController = navController, DialogDestinations.GROUP_INNER_SCREEN.toString(), modifier = Modifier.padding(innerPadding)
+            navController = navController,
+            DialogDestinations.GROUP_INNER_SCREEN.toString(),
+            modifier = Modifier.padding(innerPadding)
         ) {
-            composable(DialogDestinations.GROUP_INNER_SCREEN.toString()){
+            composable(DialogDestinations.GROUP_INNER_SCREEN.toString()) {
 //                GroupInnerScreen(addExpnse = {
 //                    navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
 //                }, navController = navController)
@@ -154,7 +157,7 @@ fun GroupInnerScreen() {
 //                }
                     }
                 } else {
-                    Text(text = "No GROUP SELECTED",)
+                    Text(text = "No GROUP SELECTED")
                 }
 
             }
@@ -170,8 +173,8 @@ fun GroupInnerScreen() {
                         selectedGroup = selectedGroup,
                         onNextClick = {
                             navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-            //                    navController.popBackStack()
-            //                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+                            //                    navController.popBackStack()
+                            //                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
                         })
                 } else {
                     Text("NO GROUP SELECTED")
@@ -188,8 +191,6 @@ fun GroupInnerScreen() {
             }
 
         }
-
-
 
 
     }
@@ -325,8 +326,13 @@ fun SECOND_SCREEN(
     var tempExpense = groupViewModel.tempExpense
 
     var oldShareList = remember {
-        mutableStateListOf<Pair<Int,Float>>()
+        mutableStateListOf<Pair<Int, Float>>()
     }
+
+    var validationResult = remember {
+        mutableStateOf(false)
+    }
+
 //    oldShareList.addAll(tempExpense.userShares.toList().toMutableList())
     if (groupViewModel.selectedExpense != -1) {
         tempExpense =
@@ -350,8 +356,23 @@ fun SECOND_SCREEN(
             }, modifier = modifier.padding(10.dp)) {
                 Text("GO BACK")
             }
-            oldShareList.forEachIndexed {
-                index , it ->
+            if (validationResult.value) {
+                val groupIndex = groupUiState.value.selectedGroupId
+                val expenseIndex = groupViewModel.selectedExpense
+                val selectedGroup = groupViewModel.groupList[groupIndex]
+                Text(
+                    "BALANCE NOT FULFILLED. ${selectedGroup.expenseList[expenseIndex].amount}", fontStyle = FontStyle.Italic, style = TextStyle(
+                        color = Color.Red, textAlign = TextAlign.Center
+                    ), modifier = modifier.padding(8.dp)
+                )
+            } else {
+                Text(
+                    "ALL GOOD", fontStyle = FontStyle.Italic, style = TextStyle(
+                        color = Color.Green, textAlign = TextAlign.Center
+                    ), modifier = modifier.padding(8.dp)
+                )
+            }
+            oldShareList.forEachIndexed { index, it ->
                 val name = groupViewModel.getUserName(it.first)
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween, modifier = modifier
@@ -361,8 +382,7 @@ fun SECOND_SCREEN(
                     Text(name)
                     TextField(
                         value = it.second.toString(),
-                        onValueChange = {
-                            newValue ->
+                        onValueChange = { newValue ->
                             oldShareList[index] = it.copy(second = newValue.toFloat())
                         },
                         modifier = modifier.width(80.dp),
@@ -377,21 +397,36 @@ fun SECOND_SCREEN(
                 val expenseIndex = groupViewModel.selectedExpense
                 val selectedGroup = groupViewModel.groupList[groupIndex]
 
-                val mutableMap = mutableMapOf<Int,Float>()
+                val mutableMap = mutableMapOf<Int, Float>()
                 mutableMap.putAll(oldShareList)
+                var totalAdded: Float = 0f
+                for (i in mutableMap) {
+                    totalAdded += i.value
+                }
+                if (!validateBalance(totalAdded, selectedGroup.expenseList[expenseIndex].amount)) {
+                    validationResult.value = true
+                } else {
+                    validationResult.value = false
+                    selectedGroup.expenseList[expenseIndex].userShares = mutableMap
 
-                selectedGroup.expenseList[expenseIndex].userShares = mutableMap
-
-                groupViewModel.groupList[groupIndex] = groupViewModel.groupList[groupIndex].copy(
-                    expenseList = selectedGroup.expenseList
-                )
-                navController.popBackStack()
+                    groupViewModel.groupList[groupIndex] =
+                        groupViewModel.groupList[groupIndex].copy(
+                            expenseList = selectedGroup.expenseList
+                        )
+                    navController.popBackStack()
+                }
 
             }, modifier = modifier.padding(10.dp)) {
                 Text("Save")
             }
+
+
         }
     }
+}
+
+fun validateBalance(totalAdded: Float, original: Float): Boolean {
+    return totalAdded == original
 }
 
 
@@ -402,7 +437,7 @@ fun GroupInnerHome(
     navController: NavHostController,
     groupViewModel: GroupViewModel
 ) {
-    AGroup(group = group,  onExpenseItemClick = {
+    AGroup(group = group, onExpenseItemClick = {
         groupViewModel.selectedExpense = it
         navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
     })
