@@ -132,9 +132,11 @@ fun GroupInnerHome(
     groupViewModel: GroupViewModel
 ) {
     val groupUiState = groupViewModel.groupUiState.collectAsState()
+    val selectedGroupId = groupUiState.value.selectedGroupId
+    val expenseList = groupViewModel.groupList[selectedGroupId].expenseList
     Column() {
         Log.d("GROUP_LOADED", groupUiState.value.selectedGroupId.toString())
-        AGroup(group = group, onExpenseItemClick = {
+        AGroup(expenseList = expenseList, onExpenseItemClick = {
             groupViewModel.selectedExpense = it
             navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
         })
@@ -376,7 +378,7 @@ fun validateBalance(totalAdded: Float, original: Float): Boolean {
 
 @Composable
 fun AGroup(
-    group: Group,
+    expenseList: List<Expense>,
     modifier: Modifier = Modifier,
     onExpenseItemClick: (index: Int) -> Unit
 ) {
@@ -390,7 +392,8 @@ fun AGroup(
                 .clip(shape = RoundedCornerShape(20.dp))
                 .padding(2.dp), verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            itemsIndexed(group.expenseList) { index, item ->
+            Log.d("UPDATED EXPENSE_LIST",expenseList.size.toString())
+            itemsIndexed(expenseList) { index, item ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = null)
                     ExpenseItem(expense = item, onExpenseItemClick = {

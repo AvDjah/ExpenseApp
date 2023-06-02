@@ -2,6 +2,7 @@ package com.example.expense
 
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import com.example.expense.data.GroupUiState
 import com.example.expense.models.Expense
@@ -62,6 +63,7 @@ class GroupViewModel : ViewModel() {
             groupList[selectedGroupId] = groupList[selectedGroupId].copy(
                 expenseList = oldExpenseList.toList()
             )
+            groupList = groupList.toMutableList().toList().toMutableStateList()
             tempExpense = newExpense
             return true
     }
@@ -89,7 +91,7 @@ class GroupViewModel : ViewModel() {
     }
 
 
-    val groupList = mutableStateListOf<Group>(
+    var groupList = mutableStateListOf<Group>(
         Group(
             name = "Kulu",
             users = listOf(
