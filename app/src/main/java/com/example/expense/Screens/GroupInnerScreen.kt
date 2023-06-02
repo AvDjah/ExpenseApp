@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,14 +35,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,16 +50,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.dialog
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.example.expense.GroupViewModel
 import com.example.expense.models.Expense
 import com.example.expense.models.Group
@@ -71,34 +61,33 @@ import com.example.expense.models.User
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupInnerScreen() {
-
-    val groupViewModel: GroupViewModel = viewModel()
-    val groupUiState = groupViewModel.groupUiState.collectAsState()
-
-    val selectedIndex = groupUiState.value.selectedGroupId
-    var selectedGroup: Group? = null
-    var groupName: String = "NO NAME"
-
+fun GroupInnerScreen(navController: NavHostController, groupViewModel: GroupViewModel) {
 
     var expanded by remember {
         mutableStateOf(false)
     }
-    var clicked by remember {
-        mutableStateOf(false)
+
+    val groupUiState = groupViewModel.groupUiState.collectAsState()
+
+    val selectedIndex = groupUiState.value.selectedGroupId
+
+    if (selectedIndex == -1) {
+        Log.d("INNERSCREEN", "SELECTED INDEX NOT VALID")
+        navController.navigate(DialogDestinations.GROUP_SCREEN.toString())
     }
 
-    if (selectedIndex != -1) {
-        groupName = groupViewModel.groupList[selectedIndex].name
-        selectedGroup = groupViewModel.groupList[selectedIndex]
+    var selectedGroup by remember {
+        mutableStateOf(groupViewModel.groupList[selectedIndex])
     }
-
-    val navController = rememberNavController()
-    //TODO : Add a condition so that if no group is selected this screen is automatically closed or doesn't open at all
+    var groupName by remember {
+        mutableStateOf(selectedGroup.name)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(title = {
+                Log.d("INNERSCREEN", "SELECTED GRP INDEX: $selectedIndex")
+                Log.d("INNERSCREEN", "GRP NAME: $groupName")
                 Text(text = groupName)
             }, actions = {
                 IconButton(onClick = { expanded = !expanded }) {
@@ -108,12 +97,10 @@ fun GroupInnerScreen() {
                     )
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    if (selectedGroup != null) {
-                        selectedGroup.users.forEach {
-                            DropdownMenuItem(
-                                text = { Text(text = it.name) },
-                                onClick = { /*TODO*/ })
-                        }
+                    selectedGroup?.users?.forEach {
+                        DropdownMenuItem(
+                            text = { Text(text = it.name) },
+                            onClick = { /*TODO*/ })
                     }
                 }
             })
@@ -121,123 +108,73 @@ fun GroupInnerScreen() {
         }, floatingActionButton = {
             FloatingActionButton(onClick = {
                 navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
-//                if (!clicked) {
-//                    clicked = true
-//                } else {
-//                    navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
-//                }
-//                navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
             }) {
                 Icon(Icons.Default.Add, contentDescription = null)
             }
         }
     ) { innerPadding ->
-        val groupViewModel: GroupViewModel = viewModel()
-
-        NavHost(
-            navController = navController,
-            DialogDestinations.GROUP_INNER_SCREEN.toString(),
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(DialogDestinations.GROUP_INNER_SCREEN.toString()) {
-//                GroupInnerScreen(addExpnse = {
-//                    navController.navigate(DialogDestinations.FIRST_SCREEN.toString())
-//                }, navController = navController)
-
-                if (selectedGroup != null) {
-                    val selectedGroup = groupViewModel.groupList[selectedIndex]
-                    Column {
-                        GroupInnerHome(
-                            group = selectedGroup,
-                            navController = navController,
-                            groupViewModel = groupViewModel
-                        )
-//                if (clicked) {
-//                    AddExpenseBox(selectedGroup = selectedGroup, navController = navController)
-//                }
-                    }
-                } else {
-                    Text(text = "No GROUP SELECTED")
-                }
-
-            }
-            dialog(
-                DialogDestinations.FIRST_SCREEN.toString(), dialogProperties = DialogProperties(
-                    dismissOnClickOutside = true
-                )
-            ) {
-
-                if (selectedGroup != null) {
-                    FIRST_SCREEN(
-                        groupViewModel = groupViewModel,
-                        selectedGroup = selectedGroup,
-                        onNextClick = {
-                            navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-                            //                    navController.popBackStack()
-                            //                    navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-                        })
-                } else {
-                    Text("NO GROUP SELECTED")
-                }
-            }
-            dialog(DialogDestinations.SECOND_SCREEN.toString()) {
-                SECOND_SCREEN(groupViewModel = groupViewModel, onGoBackClick = {
-                    navController.popBackStack(DialogDestinations.FIRST_SCREEN.toString(), false)
-
-                }, navController = navController)
-            }
-            dialog(DialogDestinations.THIRD_SCREEN.toString()) {
-                THIRD_SCREEN()
-            }
-
+        Column(modifier = Modifier.padding(innerPadding)) {
+            GroupInnerHome(
+                group = selectedGroup,
+                navController = navController,
+                groupViewModel = groupViewModel
+            )
         }
-
 
     }
 }
+
+@Composable
+fun GroupInnerHome(
+
+    group: Group,
+    navController: NavHostController,
+    groupViewModel: GroupViewModel
+) {
+    val groupUiState = groupViewModel.groupUiState.collectAsState()
+    Column() {
+        Log.d("GROUP_LOADED", groupUiState.value.selectedGroupId.toString())
+        AGroup(group = group, onExpenseItemClick = {
+            groupViewModel.selectedExpense = it
+            navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
+        })
+    }
+}
+
 
 //val color1 = Colo
 val color1 = Color.Transparent
 
 enum class DialogDestinations {
     FIRST_SCREEN, SECOND_SCREEN, THIRD_SCREEN,
-    GROUP_INNER_SCREEN
+    GROUP_INNER_SCREEN, GROUP_SCREEN
 }
 
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddExpenseBox(
-    modifier: Modifier = Modifier,
-    selectedGroup: Group,
-    navController: NavHostController = rememberNavController()
-) {
-
-
-}
-
-@Composable
-fun THIRD_SCREEN(modifier: Modifier = Modifier) {
-
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FIRST_SCREEN(
     modifier: Modifier = Modifier,
-    selectedGroup: Group,
     onNextClick: () -> Unit,
     groupViewModel: GroupViewModel
 ) {
 
+    val groupUiState = groupViewModel.groupUiState.collectAsState()
+    val selectedGroupId = groupUiState.value.selectedGroupId
+    val selectedGroup = groupViewModel.groupList[selectedGroupId]
+
     val checkList = remember {
         mutableStateListOf<Boolean>()
     }
+
     var amount = remember {
         mutableStateOf("")
     }
+
     val localContext = LocalContext.current
-    checkList.addAll(selectedGroup.users.map { false })
+    if(checkList.size != selectedGroup.users.size){
+        checkList.addAll(selectedGroup.users.map { false })
+    }
 
     Card(
         modifier = modifier
@@ -269,6 +206,9 @@ fun FIRST_SCREEN(
                         Log.d("CHECK TRIGGER", index.toString())
                         checkList[index] = !checkList[index]
                     })
+
+                    Log.d("CHECKLIST", index.toString())
+                    Log.d("CHECKLIST", checkList.toList().toString())
                     Text(
                         text = selectedGroup.users[index].name
                     )
@@ -276,40 +216,41 @@ fun FIRST_SCREEN(
             }
 
         }
-        Text(
-            "NEXT", modifier = modifier
-                .fillMaxWidth()
-                .padding(10.dp)
-                .background(color1)
-                .clickable {
-                    val res =
-                        groupViewModel.addExpense(
-                            if (amount.value.isEmpty()) {
-                                0f
-                            } else {
-                                amount.value.toFloat()
-                            },
-                            mapOf<User, Int>(),
-                            checkList = checkList,
-                        )
-                    if (!res) {
-                        Toast
-                            .makeText(
-                                localContext,
-                                "NO user selected or Invalid group",
-                                Toast.LENGTH_SHORT
-                            )
-                            .show()
+        Button(onClick = {
+            val res =
+                groupViewModel.addExpense(
+                    if (amount.value.isEmpty()) {
+                        0f
                     } else {
-                        Toast
-                            .makeText(localContext, "Success", Toast.LENGTH_SHORT)
-                            .show()
-                    }
-
-                    onNextClick()
-                    //                    onNextClick()
-                }, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium
-        )
+                        amount.value.toFloat()
+                    },
+                    checkList = checkList.toList(),
+                )
+            if (!res) {
+                Toast
+                    .makeText(
+                        localContext,
+                        "NO user selected or Invalid group",
+                        Toast.LENGTH_SHORT
+                    )
+                    .show()
+            } else {
+                Toast
+                    .makeText(localContext, "Success", Toast.LENGTH_SHORT)
+                    .show()
+            }
+            onNextClick()
+        }) {
+            Text(
+                "NEXT",
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(10.dp)
+                    .background(color1),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 
@@ -361,9 +302,12 @@ fun SECOND_SCREEN(
                 val expenseIndex = groupViewModel.selectedExpense
                 val selectedGroup = groupViewModel.groupList[groupIndex]
                 Text(
-                    "BALANCE NOT FULFILLED. ${selectedGroup.expenseList[expenseIndex].amount}", fontStyle = FontStyle.Italic, style = TextStyle(
+                    "BALANCE NOT FULFILLED. ${selectedGroup.expenseList[expenseIndex].amount}",
+                    fontStyle = FontStyle.Italic,
+                    style = TextStyle(
                         color = Color.Red, textAlign = TextAlign.Center
-                    ), modifier = modifier.padding(8.dp)
+                    ),
+                    modifier = modifier.padding(8.dp)
                 )
             } else {
                 Text(
@@ -427,20 +371,6 @@ fun SECOND_SCREEN(
 
 fun validateBalance(totalAdded: Float, original: Float): Boolean {
     return totalAdded == original
-}
-
-
-@Composable
-fun GroupInnerHome(
-
-    group: Group,
-    navController: NavHostController,
-    groupViewModel: GroupViewModel
-) {
-    AGroup(group = group, onExpenseItemClick = {
-        groupViewModel.selectedExpense = it
-        navController.navigate(DialogDestinations.SECOND_SCREEN.toString())
-    })
 }
 
 

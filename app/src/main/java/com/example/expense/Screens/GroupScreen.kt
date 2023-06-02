@@ -1,10 +1,12 @@
 package com.example.expense.Screens
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,8 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.expense.GroupViewModel
 import com.example.expense.models.Expense
 import com.example.expense.models.Group
@@ -42,17 +46,12 @@ import kotlin.math.exp
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupScreen(){
-
-
-    Scaffold (
-        topBar = {
-            TopAppBar(title = {Text(text = "Group List")})
-        }
-            ){
-        HomeScreen(paddingValues = it)
-    }
-
+fun GroupScreen(navController: NavController, groupViewModel: GroupViewModel){
+    HomeScreen(openGroup = {
+            groupViewModel.changeSelectedGroup(it)
+            Log.d("GROUP SELECTED",groupViewModel.groupUiState.value.selectedGroupId.toString())
+            navController.navigate(DialogDestinations.GROUP_INNER_SCREEN.toString())
+    })
 
 }
 
@@ -83,23 +82,33 @@ val group : Group = Group(
 
 
 @Composable
-fun HomeScreen(paddingValues: PaddingValues, modifier: Modifier = Modifier) {
+fun HomeScreen(modifier: Modifier = Modifier, openGroup: (Int) -> Unit) {
     var groupViewModel : GroupViewModel = viewModel()
     var groupList = groupViewModel.groupList
     LazyColumn(modifier = modifier
         .fillMaxWidth()
-        .padding(paddingValues = paddingValues)){
-        items(groupList){
-            GroupItem(group = it)
+        .padding(8.dp)){
+        item {
+            Text("GROUPS LIST", style = TextStyle(
+                color = Color.Black, background = Color.White, fontSize = MaterialTheme.typography.headlineSmall.fontSize
+            ), modifier = modifier.padding(10.dp))
+        }
+        itemsIndexed(groupList){
+            index, it ->
+            GroupItem(group = it, openGroup = {
+                openGroup(index)
+            })
         }
     }
 }
 
 @Composable
-fun GroupItem(group : Group, modifier: Modifier = Modifier){
+fun GroupItem(group : Group, modifier: Modifier = Modifier, openGroup : ()->Unit){
     Card(modifier = modifier
         .fillMaxWidth()
-        .padding(8.dp)) {
+        .padding(8.dp).clickable {
+            openGroup()
+        }) {
         Column(modifier = modifier.padding(8.dp)) {
             Text(text = group.name, modifier.padding(8.dp))
         }
